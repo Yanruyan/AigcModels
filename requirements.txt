@@ -1,0 +1,13 @@
+# Core inference stack
+accelerate>=0.33.0
+transformers>=4.44.0
+diffusers>=0.30.0
+safetensors>=0.4.3
+huggingface_hub>=0.24.6
+
+# Image utils
+Pillow>=10.4.0
+numpy>=1.26.4
+
+# Optional memory-efficient attention. If build fails, you can skip it.
+xformers>=0.0.27
