@@ -1,0 +1,10 @@
+diffusers==0.30.2
+transformers==4.44.2
+accelerate==0.34.2
+huggingface-hub>=0.23.0
+safetensors>=0.4.4
+pillow>=10.3.0
+sentencepiece>=0.2.0
+
+# 重要说明：请先根据你的 CUDA 版本单独安装 PyTorch（见 README）。
+# 可选：若你想使用更省显存的注意力实现，可在安装了合适版本 PyTorch 后额外安装 xformers。
