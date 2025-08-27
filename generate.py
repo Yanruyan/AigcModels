@@ -4,7 +4,7 @@ import os
 import argparse
 import time
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional
 
 import torch
 from PIL import Image
@@ -14,7 +14,7 @@ from diffusers import StableDiffusionXLPipeline
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Minimal SDXL text-to-image generator (single-GPU)"
+        description="Minimal SDXL text-to-image generator (single-GPU, single image)"
     )
     parser.add_argument("prompt", type=str, help="Text prompt for image generation")
     parser.add_argument(
@@ -54,18 +54,6 @@ def parse_args() -> argparse.Namespace:
         help="Random seed for reproducibility",
     )
     parser.add_argument(
-        "--num-images",
-        type=int,
-        default=1,
-        help="Total number of images to generate",
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=1,
-        help="Images per batch (fits into VRAM)",
-    )
-    parser.add_argument(
         "--gpu",
         type=int,
         default=0,
@@ -75,7 +63,7 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=str,
         default="outputs",
-        help="Directory to save generated images",
+        help="Directory to save the generated image",
     )
     parser.add_argument(
         "--model",
@@ -162,7 +150,7 @@ def load_pipeline(model_id: str, device: torch.device, do_compile: bool) -> Stab
     return pipe
 
 
-def generate_images(
+def generate_image(
         pipe: StableDiffusionXLPipeline,
         prompt: str,
         nprompt: str,
@@ -171,54 +159,35 @@ def generate_images(
         width: int,
         height: int,
         seed: Optional[int],
-        num_images: int,
-        batch_size: int,
         output_dir: Path,
-) -> List[Path]:
+) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     device = pipe.device
-    file_paths: List[Path] = []
-    global_generator = None
+
+    generator = None
     if seed is not None:
-        global_generator = torch.Generator(device=device)
-        global_generator.manual_seed(seed)
+        generator = torch.Generator(device=device)
+        generator.manual_seed(seed)
 
-    num_batches = (num_images + batch_size - 1) // batch_size
-    counter = 0
-    for batch_index in range(num_batches):
-        current_bs = min(batch_size, num_images - counter)
-        batch_seeds = None
-        if seed is not None:
-            # Ensure each image has a distinct seed when using batches
-            batch_seeds = [seed + counter + i for i in range(current_bs)]
-            generators = [torch.Generator(device=device).manual_seed(s) for s in batch_seeds]
-        else:
-            generators = [None] * current_bs
+    start_time = time.time()
+    with torch.inference_mode(), torch.autocast(device_type="cuda", dtype=torch.float16):
+        result = pipe(
+            prompt=prompt,
+            negative_prompt=nprompt or None,
+            width=width,
+            height=height,
+            num_inference_steps=steps,
+            guidance_scale=guidance,
+            generator=generator,
+        )
+    elapsed = time.time() - start_time
+    print(f"Image generated in {elapsed:.2f}s")
 
-        start_time = time.time()
-        with torch.inference_mode(), torch.autocast(device_type="cuda", dtype=torch.float16):
-            result = pipe(
-                [prompt] * current_bs,
-                negative_prompt=[nprompt] * current_bs if nprompt else None,
-                width=width,
-                height=height,
-                num_inference_steps=steps,
-                guidance_scale=guidance,
-                generator=generators,
-            )
-        elapsed = time.time() - start_time
-        print(f"Batch {batch_index + 1}/{num_batches} generated in {elapsed:.2f}s")
-
-        images: List[Image.Image] = result.images
-        for i, img in enumerate(images):
-            index = counter + i
-            filename = f"sdxl_{index:05d}.png"
-            path = output_dir / filename
-            img.save(path)
-            file_paths.append(path)
-        counter += current_bs
-
-    return file_paths
+    image: Image.Image = result.images[0]
+    filename = "sdxl.png"
+    path = output_dir / filename
+    image.save(path)
+    return path
 
 
 def main():
@@ -228,7 +197,7 @@ def main():
     pipe = load_pipeline(args.model, device, args.compile)
     maybe_set_scheduler(pipe, args.scheduler)
 
-    paths = generate_images(
+    out_path = generate_image(
         pipe=pipe,
         prompt=args.prompt,
         nprompt=args.negative_prompt,
@@ -237,14 +206,11 @@ def main():
         width=args.width,
         height=args.height,
         seed=args.seed,
-        num_images=args.num_images,
-        batch_size=args.batch_size,
         output_dir=Path(args.output),
     )
 
     print("Saved:")
-    for p in paths:
-        print(str(p))
+    print(str(out_path))
 
 
 if __name__ == "__main__":
