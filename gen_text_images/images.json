@@ -1,0 +1,12 @@
+{
+  "test goods": [
+    "s3://mlalgorithm/ai_site_builder/product_images/test_goods_1.jpg",
+    "s3://mlalgorithm/ai_site_builder/product_images/test_goods_2.jpg",
+    "s3://mlalgorithm/ai_site_builder/product_images/test_goods_3.jpg",
+    "s3://mlalgorithm/ai_site_builder/product_images/test_goods_4.jpg",
+    "s3://mlalgorithm/ai_site_builder/product_images/test_goods_5.jpg",
+    "s3://mlalgorithm/ai_site_builder/product_images/test_goods_6.jpg",
+    "s3://mlalgorithm/ai_site_builder/product_images/test_goods_7.jpg",
+    "s3://mlalgorithm/ai_site_builder/product_images/test_goods_8.jpg"
+  ]
+}
